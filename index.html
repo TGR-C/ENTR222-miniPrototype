@@ -53,7 +53,6 @@
     padding: 7px 14px; font: inherit; font-weight: 500; color: var(--text);
   }
   .range { font-size: 20px; color: var(--text); }
-  .header-hint { margin-left: auto; color: var(--muted); font-size: 13px; }
 
   /* ---------- Layout ---------- */
   .app { flex: 1 1 auto; display: flex; min-height: 0; }
@@ -254,13 +253,84 @@
   .btn-ok { background: var(--ok); color: #fff; }
   .btn-ok:hover { background: var(--ok-hover); }
 
+  /* ---------- Onboarding guide (chat-style) ---------- */
+  .guide-btn {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: #fff; border-radius: 999px;
+    padding: 6px 14px 6px 8px; font: inherit; font-weight: 500; color: var(--text); cursor: pointer;
+  }
+  .guide-btn:hover { background: #f1f3f4; }
+  .guide-btn .q {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff;
+    font-size: 12px; font-weight: 700; display: grid; place-items: center;
+  }
+  .guide {
+    position: fixed; z-index: 1500; width: 330px; max-width: calc(100vw - 32px);
+    background: #fff; border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 14px 36px rgba(60,64,67,.28), 0 2px 6px rgba(60,64,67,.15);
+    display: none; transition: top .3s ease, left .3s ease, opacity .2s ease;
+  }
+  .guide.show { display: block; animation: guideIn .28s ease-out; }
+  @keyframes guideIn { from { opacity: 0; transform: translateX(-10px); } }
+  body.dragging .guide { opacity: 0; pointer-events: none; }
+  .g-arrow {
+    position: absolute; left: -9px; width: 16px; height: 16px; background: #fff;
+    border-left: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    transform: rotate(45deg); transition: top .3s ease;
+  }
+  .g-head { display: flex; align-items: center; gap: 10px; padding: 12px 12px 10px 14px; border-bottom: 1px solid var(--line); }
+  .g-avatar {
+    width: 32px; height: 32px; border-radius: 50%; flex: 0 0 auto;
+    background: linear-gradient(135deg, #4285f4, #34a853); color: #fff;
+    display: grid; place-items: center; font-size: 16px;
+  }
+  .g-name { font-weight: 600; font-size: 13.5px; line-height: 1.2; }
+  .g-status { font-size: 11.5px; color: #188038; display: flex; align-items: center; gap: 5px; }
+  .g-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #34a853; }
+  .g-close {
+    margin-left: auto; border: 0; background: none; color: var(--muted); cursor: pointer;
+    width: 30px; height: 30px; border-radius: 50%; font-size: 20px; line-height: 30px; padding: 0;
+  }
+  .g-close:hover { background: #f1f3f4; }
+  .g-body { padding: 12px 14px 4px; display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; }
+  .g-msg {
+    align-self: flex-start; background: #f1f3f4; color: var(--text);
+    border-radius: 4px 16px 16px 16px; padding: 9px 12px; font-size: 13.5px; line-height: 1.45;
+    animation: msgIn .22s ease-out;
+  }
+  .g-msg ol { margin: 6px 0 2px; padding-left: 20px; }
+  .g-msg li { margin: 4px 0; }
+  .g-msg .free-word { color: #137333; background: rgba(52,168,83,.16); border: 1px solid #34a853; border-radius: 4px; padding: 0 4px; font-weight: 600; }
+  .g-msg .ok-word { color: #fff; background: var(--ok); border-radius: 4px; padding: 0 5px; font-weight: 600; }
+  .g-msg .cancel-word { background: var(--cancel); border-radius: 4px; padding: 0 5px; font-weight: 600; }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } }
+  .g-typing { align-self: flex-start; background: #f1f3f4; border-radius: 4px 16px 16px 16px; padding: 11px 14px; display: flex; gap: 4px; }
+  .g-typing span { width: 6px; height: 6px; border-radius: 50%; background: #9aa0a6; animation: bounce 1s infinite; }
+  .g-typing span:nth-child(2) { animation-delay: .15s; }
+  .g-typing span:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
+  .g-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px 14px; min-height: 12px; }
+  .g-btn {
+    border: 1px solid var(--line); background: #fff; color: var(--text); border-radius: 999px;
+    padding: 7px 16px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; animation: msgIn .22s ease-out;
+  }
+  .g-btn:hover { background: #f1f3f4; }
+  .g-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .g-btn.primary:hover { background: #1765cc; }
+  .guide-target { position: relative; z-index: 1; animation: ring 1.6s ease-in-out infinite; border-radius: 12px; }
+  .free-toggle.guide-target { border-radius: 999px; }
+  @keyframes ring {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(26,115,232,.35); }
+    50% { box-shadow: 0 0 0 7px rgba(26,115,232,.12); }
+  }
+  ul.todo-list.guide-target { outline: none; }
+
   /* ---------- Small screens ---------- */
   @media (max-width: 760px) {
     body { overflow: auto; }
     .app { flex-direction: column; }
     aside { width: auto; flex: 0 0 auto; border-right: 0; border-bottom: 1px solid var(--line); }
     .cal { height: 75vh; flex: 0 0 auto; }
-    .header-hint { display: none; }
     .legend { display: flex; flex-wrap: wrap; gap: 0 16px; }
   }
 </style>
@@ -277,7 +347,7 @@
   </div>
   <button class="today-btn" type="button" id="todayBtn">Today</button>
   <div class="range" id="range"></div>
-  <div class="header-hint">Tip: press &amp; hold a to-do, then drag it onto the calendar</div>
+  <button type="button" class="guide-btn" id="guideBtn"><span class="q">?</span>Guide</button>
 </header>
 
 <div class="app">
@@ -315,6 +385,20 @@
       <button type="button" class="btn btn-ok" id="mOk">OK</button>
     </div>
   </div>
+</div>
+
+<div class="guide" id="guide" role="dialog" aria-label="How to use this calendar">
+  <div class="g-arrow" id="gArrow"></div>
+  <div class="g-head">
+    <div class="g-avatar" aria-hidden="true">✨</div>
+    <div>
+      <div class="g-name">Calendar Assistant</div>
+      <div class="g-status">Here to help</div>
+    </div>
+    <button type="button" class="g-close" id="gClose" aria-label="Close guide">×</button>
+  </div>
+  <div class="g-body" id="gBody"></div>
+  <div class="g-actions" id="gActions"></div>
 </div>
 
 <script>
@@ -767,6 +851,7 @@
       li.remove();                       // task now lives on the calendar
       renderDay(target.day, ev.id);
       updateEmpty();
+      if (gStep === 1) setTimeout(() => goStep(2, true), 600);
     } else {
       restoreTask(li);                   // put it back in the to-do list
     }
@@ -799,7 +884,123 @@
   $('freeToggle').addEventListener('click', e => {
     const on = document.body.classList.toggle('free-mode');
     e.currentTarget.setAttribute('aria-pressed', String(on));
+    if (gStep === 2) setTimeout(() => goStep(3), 700);
   });
+
+  // ---------- Onboarding guide (chat-style) ----------
+  const guide = $('guide'), gBody = $('gBody'), gActions = $('gActions'), gArrow = $('gArrow');
+  let gStep = 0, gRun = 0, gTarget = null;
+
+  const STEPS = {
+    1: {
+      target: () => (todoList.children.length ? todoList : $('todoEmpty')),
+      msgs: () => [
+        "👋 Hi! Here's your week at a glance — <b>classes</b>, <b>clubs</b>, <b>meetups</b> and more, each in its own color.",
+        "You can drag tasks from this <b>To-do list</b> straight onto your calendar:" +
+          "<ol>" +
+          "<li><b>Press and hold</b> a task for about half a second until it lifts off the list.</li>" +
+          "<li><b>Drag</b> it to any day and time — a dashed outline shows where it'll land.</li>" +
+          "<li><b>Let go</b>, choose how long it'll take, then press <span class=\"ok-word\">OK</span>. " +
+          "Press <span class=\"cancel-word\">Cancel</span> to put it back in the list.</li>" +
+          "</ol>",
+        "Give it a try now, or press <b>Got it</b> to continue.",
+      ],
+      actions: [['Skip tour', '', () => endGuide()], ['Got it', 'primary', () => goStep(2)]],
+    },
+    2: {
+      target: () => $('freeToggle'),
+      msgs: praised => [
+        ...(praised ? ["Nice, you scheduled your first task! 🎉"] : []),
+        "One more tool: the <b>Free time</b> switch next to your To-do heading.",
+        "Turn it on to gray out everything already on your calendar and mark every open slot in " +
+          "<span class=\"free-word\">green</span> — handy for spotting where your tasks fit.",
+        "Click it to try it, and click again to switch back.",
+      ],
+      actions: [['Got it', 'primary', () => goStep(3)]],
+    },
+    3: {
+      target: () => $('freeToggle'),
+      msgs: () => [
+        "You're all set! ✅",
+        "You can reopen this guide anytime with the <b>Guide</b> button at the top right.",
+      ],
+      actions: [['Done', 'primary', () => endGuide()]],
+    },
+  };
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  async function goStep(n, praised) {
+    const run = ++gRun;
+    gStep = n;
+    const step = STEPS[n];
+    if (gTarget) gTarget.classList.remove('guide-target');
+    gTarget = step.target();
+    gTarget.classList.add('guide-target');
+    gBody.innerHTML = '';
+    gActions.innerHTML = '';
+    guide.classList.add('show');
+    positionGuide();
+
+    for (const html of step.msgs(praised)) {
+      const typing = document.createElement('div');
+      typing.className = 'g-typing';
+      typing.innerHTML = '<span></span><span></span><span></span>';
+      gBody.appendChild(typing);
+      positionGuide();
+      await sleep(Math.min(1100, 350 + html.replace(/<[^>]+>/g, '').length * 4));
+      if (run !== gRun) return;                 // guide moved on / closed meanwhile
+      const msg = document.createElement('div');
+      msg.className = 'g-msg';
+      msg.innerHTML = html;
+      typing.replaceWith(msg);
+      gBody.scrollTop = gBody.scrollHeight;
+      positionGuide();
+      await sleep(250);
+      if (run !== gRun) return;
+    }
+    step.actions.forEach(([label, cls, fn]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'g-btn ' + cls;
+      b.textContent = label;
+      b.addEventListener('click', fn);
+      gActions.appendChild(b);
+    });
+    positionGuide();
+  }
+
+  function endGuide() {
+    gRun++;
+    gStep = 0;
+    if (gTarget) gTarget.classList.remove('guide-target');
+    gTarget = null;
+    guide.classList.remove('show');
+  }
+
+  function positionGuide() {
+    if (!gStep || !gTarget) return;
+    const gh = guide.offsetHeight;
+    if (window.innerWidth <= 760) {            // stacked layout: dock at the bottom
+      guide.style.left = '16px';
+      guide.style.top = (window.innerHeight - gh - 16) + 'px';
+      gArrow.style.display = 'none';
+      return;
+    }
+    gArrow.style.display = '';
+    const t = gTarget.getBoundingClientRect();
+    const asideR = document.querySelector('aside').getBoundingClientRect();
+    const cy = t.top + Math.min(t.height, 120) / 2;
+    const top = Math.max(64, Math.min(cy - 44, window.innerHeight - gh - 12));
+    guide.style.left = (asideR.right + 16) + 'px';
+    guide.style.top = top + 'px';
+    gArrow.style.top = Math.max(14, Math.min(cy - top - 8, gh - 30)) + 'px';
+  }
+
+  $('gClose').addEventListener('click', endGuide);
+  $('guideBtn').addEventListener('click', () => goStep(1));
+  window.addEventListener('resize', positionGuide);
+  document.querySelector('aside').addEventListener('scroll', positionGuide);
 
   // ---------- Init ----------
   buildCalendar();
@@ -814,6 +1015,8 @@
     const min = Math.max(START_H * 60, now.getHours() * 60 + now.getMinutes() - 90);
     calScroll.scrollTo({ top: (min - START_H * 60) / 60 * HOUR_PX, behavior: 'smooth' });
   });
+
+  setTimeout(() => goStep(1), 600);   // greet first-time visitors
 })();
 </script>
 </body>
