@@ -98,6 +98,39 @@
   @keyframes restore { 0% { background: #e8f0fe; } 100% { background: #fff; } }
   .todo-empty { color: var(--muted); font-size: 13px; padding: 8px 0 16px; }
 
+  /* ---------- Free-time switch ---------- */
+  .todo-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .todo-head h2 { margin: 0; }
+  .free-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line); background: #fff; border-radius: 999px;
+    padding: 4px 10px 4px 6px; font: inherit; font-size: 12.5px; font-weight: 500; color: var(--text); cursor: pointer;
+  }
+  .free-toggle:hover { background: #f1f3f4; }
+  .free-toggle .track {
+    position: relative; width: 30px; height: 18px; border-radius: 9px; background: #bdc1c6;
+    transition: background .18s ease; flex: 0 0 auto;
+  }
+  .free-toggle .track::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .18s ease;
+  }
+  .free-toggle[aria-pressed="true"] { border-color: #a8dab5; background: #e6f4ea; color: #137333; }
+  .free-toggle[aria-pressed="true"] .track { background: var(--ok); }
+  .free-toggle[aria-pressed="true"] .track::after { transform: translateX(12px); }
+
+  .free-slot {
+    position: absolute; left: 3px; right: 3px; border-radius: 6px;
+    background: rgba(52,168,83,.16); border: 1.5px solid #34a853;
+    color: #137333; font-size: 11.5px; font-weight: 600; padding: 3px 6px; overflow: hidden;
+    white-space: nowrap; text-overflow: ellipsis;
+    pointer-events: none; display: none; z-index: 1;
+  }
+  body.free-mode .free-slot { display: block; animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from { opacity: 0; } }
+  body.free-mode .event { filter: grayscale(1); opacity: .45; }
+  body.free-mode .event.new { animation: none; }
+
   /* ---------- Legend ---------- */
   .legend { list-style: none; margin: 0; padding: 0; }
   .legend li { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
@@ -146,7 +179,7 @@
     color: #fff; font-size: 12px; line-height: 1.25; overflow: hidden;
     border: 1px solid #fff; cursor: default;
     box-shadow: 0 0 0 0 rgba(0,0,0,0);
-    transition: box-shadow .15s ease;
+    transition: box-shadow .15s ease, filter .2s ease, opacity .2s ease;
   }
   .event:hover { box-shadow: 0 2px 6px rgba(60,64,67,.35); z-index: 3; }
   .event .e-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -249,7 +282,12 @@
 
 <div class="app">
   <aside>
-    <h2>To-do</h2>
+    <div class="todo-head">
+      <h2>To-do</h2>
+      <button type="button" class="free-toggle" id="freeToggle" aria-pressed="false" title="Gray out events and highlight free time">
+        <span class="track"></span><span>Free time</span>
+      </button>
+    </div>
     <p class="hint">Press and hold a task to pick it up, then drop it anywhere on the week.</p>
     <ul class="todo-list" id="todoList"></ul>
     <div class="todo-empty" id="todoEmpty" hidden>All tasks scheduled 🎉</div>
@@ -478,6 +516,30 @@
         x.addEventListener('click', () => unschedule(ev));
         el.appendChild(x);
       }
+      col.appendChild(el);
+    });
+    renderFreeSlots(day);
+  }
+
+  // Green boxes for every gap (>= 15 min) between events in the visible hours.
+  function renderFreeSlots(day) {
+    const col = cols[day];
+    col.querySelectorAll('.free-slot').forEach(e => e.remove());
+    const busy = events.filter(e => e.day === day)
+      .map(e => [Math.max(e.start, START_H * 60), Math.min(e.end, END_H * 60)])
+      .filter(([a, b]) => b > a)
+      .sort((a, b) => a[0] - b[0]);
+    let cursor = START_H * 60;
+    const gaps = [];
+    busy.forEach(([a, b]) => { if (a > cursor) gaps.push([cursor, a]); cursor = Math.max(cursor, b); });
+    if (cursor < END_H * 60) gaps.push([cursor, END_H * 60]);
+    gaps.filter(([a, b]) => b - a >= 15).forEach(([a, b]) => {
+      const el = document.createElement('div');
+      el.className = 'free-slot';
+      el.style.top = (a - START_H * 60) / 60 * HOUR_PX + 1 + 'px';
+      el.style.height = (b - a) / 60 * HOUR_PX - 3 + 'px';
+      el.textContent = b - a >= 45 ? `Free · ${Math.floor((b - a) / 60) ? Math.floor((b - a) / 60) + ' hr' : ''}${(b - a) % 60 ? ' ' + (b - a) % 60 + ' min' : ''}`.replace('·  ', '· ') : b - a >= 30 ? 'Free' : '';
+      el.title = `Free ${fmt(a)} – ${fmt(b)}`;
       col.appendChild(el);
     });
   }
@@ -732,6 +794,12 @@
     li.classList.add('restored');
     updateEmpty();
   }
+
+  // ---------- Free-time switch ----------
+  $('freeToggle').addEventListener('click', e => {
+    const on = document.body.classList.toggle('free-mode');
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+  });
 
   // ---------- Init ----------
   buildCalendar();
