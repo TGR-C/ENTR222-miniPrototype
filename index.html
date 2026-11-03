@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Week Planner</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --side: #f8fafd;
+    --line: #e3e6ea;
+    --line-soft: #f0f2f4;
+    --text: #1f1f1f;
+    --muted: #5f6368;
+    --accent: #1a73e8;
+    --hour: 52px;
+
+    --c-class: #4285f4;
+    --c-club: #33b679;
+    --c-meet: #f4511e;
+    --c-fit: #d81b60;
+    --c-work: #8e24aa;
+    --c-todo: #f6bf26;
+
+    --ok: #1e8e3e;
+    --ok-hover: #188038;
+    --cancel: #e0e0e0;
+    --cancel-hover: #d2d2d2;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  body.dragging, body.dragging * { cursor: grabbing !important; user-select: none; }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-size: 20px; color: var(--muted); }
+  .brand svg { flex: 0 0 auto; }
+  .today-btn {
+    border: 1px solid var(--line); background: #fff; border-radius: 6px;
+    padding: 7px 14px; font: inherit; font-weight: 500; color: var(--text);
+  }
+  .range { font-size: 20px; color: var(--text); }
+  .header-hint { margin-left: auto; color: var(--muted); font-size: 13px; }
+
+  /* ---------- Layout ---------- */
+  .app { flex: 1 1 auto; display: flex; min-height: 0; }
+  aside {
+    width: 268px; flex: 0 0 268px; background: var(--side);
+    border-right: 1px solid var(--line); padding: 16px; overflow-y: auto;
+  }
+  aside h2 { font-size: 14px; font-weight: 600; margin: 0 0 4px; letter-spacing: .2px; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; line-height: 1.4; }
+
+  /* ---------- To-do ---------- */
+  .todo-list { list-style: none; margin: 0 0 24px; padding: 0; }
+  .task {
+    position: relative; overflow: hidden;
+    display: flex; gap: 10px; align-items: flex-start;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
+    cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none;
+    -webkit-touch-callout: none;
+    max-height: 120px;
+    transition: max-height .22s ease, padding .22s ease, margin .22s ease, opacity .18s ease,
+                border-width .22s ease, box-shadow .15s ease, transform .15s ease;
+  }
+  .task:hover { box-shadow: 0 1px 3px rgba(60,64,67,.25); }
+  .task .check {
+    width: 18px; height: 18px; border: 2px solid #80868b; border-radius: 50%;
+    flex: 0 0 auto; margin-top: 1px;
+  }
+  .task .title { font-weight: 500; line-height: 1.3; }
+  .task .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .task .bar {
+    position: absolute; left: 0; bottom: 0; height: 3px; width: 0;
+    background: var(--accent); border-radius: 0 2px 2px 0;
+  }
+  .task.holding { transform: scale(.98); }
+  .task.holding .bar { width: 100%; transition: width var(--hold-ms, 450ms) linear; }
+  .task.picked {
+    max-height: 0; padding-top: 0; padding-bottom: 0; margin-bottom: 0;
+    border-width: 0; opacity: 0;
+  }
+  .task.restored { animation: restore .35s ease; }
+  @keyframes restore { 0% { background: #e8f0fe; } 100% { background: #fff; } }
+  .todo-empty { color: var(--muted); font-size: 13px; padding: 8px 0 16px; }
+
+  /* ---------- Legend ---------- */
+  .legend { list-style: none; margin: 0; padding: 0; }
+  .legend li { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; flex: 0 0 auto; }
+
+  /* ---------- Calendar ---------- */
+  .cal { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .cal-scroll { flex: 1 1 auto; overflow: auto; position: relative; }
+  .grid {
+    display: grid;
+    grid-template-columns: 60px repeat(7, minmax(96px, 1fr));
+    min-width: 732px;
+  }
+  .corner, .dayhead {
+    position: sticky; top: 0; z-index: 5; background: #fff;
+    border-bottom: 1px solid var(--line);
+  }
+  .corner { z-index: 6; font-size: 10px; color: var(--muted); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; }
+  .dayhead { text-align: center; padding: 8px 0 8px; border-left: 1px solid var(--line); }
+  .dayhead .dow { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: .8px; }
+  .dayhead .num {
+    font-size: 24px; width: 44px; height: 44px; line-height: 44px; margin: 2px auto 0;
+    border-radius: 50%; color: var(--text);
+  }
+  .dayhead.today .dow { color: var(--accent); }
+  .dayhead.today .num { background: var(--accent); color: #fff; }
+
+  .times { position: relative; background: #fff; }
+  .times span {
+    position: absolute; right: 8px; font-size: 10px; color: var(--muted);
+    transform: translateY(-50%); white-space: nowrap;
+  }
+  .daycol {
+    position: relative; border-left: 1px solid var(--line);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(var(--line-soft) 1px, transparent 1px);
+    background-size: 100% var(--hour), 100% var(--hour);
+    background-position: 0 0, 0 calc(var(--hour) / 2);
+  }
+  .daycol.today { background-color: #fbfcff; }
+  .daycol.drop-over { background-color: #f1f6fe; }
+
+  .event {
+    position: absolute; border-radius: 6px; padding: 3px 6px;
+    color: #fff; font-size: 12px; line-height: 1.25; overflow: hidden;
+    border: 1px solid #fff; cursor: default;
+    box-shadow: 0 0 0 0 rgba(0,0,0,0);
+    transition: box-shadow .15s ease;
+  }
+  .event:hover { box-shadow: 0 2px 6px rgba(60,64,67,.35); z-index: 3; }
+  .event .e-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .event .e-time, .event .e-loc { opacity: .92; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .event.short { padding-top: 1px; }
+  .event.short .e-title { display: inline; }
+  .event.todo { color: #3c2a00; }
+  .event.new { animation: pop .35s ease; }
+  @keyframes pop { 0% { transform: scale(.9); opacity: .2; } 100% { transform: scale(1); opacity: 1; } }
+  .event .unschedule {
+    position: absolute; top: 2px; right: 3px; width: 18px; height: 18px;
+    border: 0; border-radius: 50%; background: rgba(0,0,0,.12); color: inherit;
+    font-size: 13px; line-height: 18px; padding: 0; cursor: pointer; display: none;
+  }
+  .event:hover .unschedule { display: block; }
+
+  .c-class { background: var(--c-class); }
+  .c-club  { background: var(--c-club); }
+  .c-meet  { background: var(--c-meet); }
+  .c-fit   { background: var(--c-fit); }
+  .c-work  { background: var(--c-work); }
+  .c-todo  { background: var(--c-todo); }
+
+  .now-line { position: absolute; left: -1px; right: 0; height: 2px; background: #ea4335; z-index: 4; pointer-events: none; }
+  .now-line::before { content: ""; position: absolute; left: -6px; top: -5px; width: 12px; height: 12px; border-radius: 50%; background: #ea4335; }
+
+  .preview {
+    position: absolute; left: 2px; right: 6px; border-radius: 6px;
+    border: 2px dashed #b88a00; background: rgba(246,191,38,.35);
+    color: #3c2a00; font-size: 12px; font-weight: 600; padding: 3px 6px;
+    pointer-events: none; z-index: 2; display: none;
+  }
+
+  /* ---------- Floating drag box ---------- */
+  .drag-box {
+    position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none;
+    width: 170px; min-height: var(--hour); padding: 6px 8px; border-radius: 8px;
+    background: var(--c-todo); color: #3c2a00; font-size: 12.5px; font-weight: 600;
+    box-shadow: 0 10px 24px rgba(0,0,0,.25), 0 2px 6px rgba(0,0,0,.15);
+    animation: lift .18s ease-out;
+  }
+  .drag-box .when { font-weight: 500; font-size: 11.5px; opacity: .85; margin-top: 2px; }
+  @keyframes lift { from { transform: scale(.85); opacity: .4; } }
+
+  /* ---------- Modal ---------- */
+  .backdrop {
+    position: fixed; inset: 0; background: rgba(32,33,36,.45); z-index: 2000;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .backdrop[hidden] { display: none; }
+  .modal {
+    background: #fff; border-radius: 14px; width: 100%; max-width: 400px; padding: 22px 22px 18px;
+    box-shadow: 0 24px 48px rgba(0,0,0,.3); animation: modalIn .18s ease-out;
+  }
+  @keyframes modalIn { from { transform: translateY(8px) scale(.98); opacity: 0; } }
+  .modal h3 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+  .modal .when { color: var(--muted); margin: 0 0 16px; }
+  .modal label.q { display: block; font-weight: 500; margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .chips input { position: absolute; opacity: 0; pointer-events: none; }
+  .chips label {
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer;
+    font-size: 13px; user-select: none;
+  }
+  .chips input:checked + label { background: #e8f0fe; border-color: var(--accent); color: #174ea6; font-weight: 600; }
+  .chips input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ends { color: var(--muted); font-size: 13px; margin: 4px 0 18px; }
+  .actions { display: flex; justify-content: flex-end; gap: 10px; }
+  .btn { border: 0; border-radius: 8px; padding: 9px 22px; font: inherit; font-weight: 600; cursor: pointer; }
+  .btn-cancel { background: var(--cancel); color: #3c4043; }
+  .btn-cancel:hover { background: var(--cancel-hover); }
+  .btn-ok { background: var(--ok); color: #fff; }
+  .btn-ok:hover { background: var(--ok-hover); }
+
+  /* ---------- Small screens ---------- */
+  @media (max-width: 760px) {
+    body { overflow: auto; }
+    .app { flex-direction: column; }
+    aside { width: auto; flex: 0 0 auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    .cal { height: 75vh; flex: 0 0 auto; }
+    .header-hint { display: none; }
+    .legend { display: flex; flex-wrap: wrap; gap: 0 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 36 36" aria-hidden="true">
+      <rect x="3" y="5" width="30" height="28" rx="5" fill="#fff" stroke="#4285f4" stroke-width="3"/>
+      <rect x="3" y="5" width="30" height="8" rx="3" fill="#4285f4"/>
+      <text x="18" y="29" text-anchor="middle" font-size="13" font-weight="700" fill="#4285f4" font-family="Arial">7</text>
+    </svg>
+    <span>Calendar</span>
+  </div>
+  <button class="today-btn" type="button" id="todayBtn">Today</button>
+  <div class="range" id="range"></div>
+  <div class="header-hint">Tip: press &amp; hold a to-do, then drag it onto the calendar</div>
+</header>
+
+<div class="app">
+  <aside>
+    <h2>To-do</h2>
+    <p class="hint">Press and hold a task to pick it up, then drop it anywhere on the week.</p>
+    <ul class="todo-list" id="todoList"></ul>
+    <div class="todo-empty" id="todoEmpty" hidden>All tasks scheduled 🎉</div>
+
+    <h2>Categories</h2>
+    <ul class="legend" id="legend"></ul>
+  </aside>
+
+  <section class="cal">
+    <div class="cal-scroll" id="calScroll">
+      <div class="grid" id="grid"></div>
+    </div>
+  </section>
+</div>
+
+<div class="backdrop" id="modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <h3 id="mTitle"></h3>
+    <p class="when" id="mWhen"></p>
+    <label class="q">How long will this task take?</label>
+    <div class="chips" id="mChips"></div>
+    <div class="ends" id="mEnds"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-cancel" id="mCancel">Cancel</button>
+      <button type="button" class="btn btn-ok" id="mOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- Config ----------
+  const START_H = 7, END_H = 23;          // visible hours: 7 AM – 11 PM
+  const HOLD_MS = 450;                    // press-and-hold time to pick up
+  const SNAP = 15;                        // minutes
+  const HOUR_PX = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour'));
+  document.documentElement.style.setProperty('--hold-ms', HOLD_MS + 'ms');
+
+  const CATS = {
+    class: 'Classes',
+    club:  'Clubs',
+    meet:  'Meetups & social',
+    fit:   'Fitness',
+    work:  'Work',
+    todo:  'Scheduled to-dos',
+  };
+
+  const hm = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+
+  // Day index: 0 = Sun … 6 = Sat
+  const SEED = [
+    // Classes
+    { t: 'ECON 101 Lecture',     c: 'class', d: [1, 3, 5], s: '9:00',  e: '9:50',  loc: 'Hall 150' },
+    { t: 'ENTR 222',             c: 'class', d: [2, 4],    s: '10:30', e: '11:45', loc: 'Business Bldg S300' },
+    { t: 'CS 61 Lecture',        c: 'class', d: [1, 3],    s: '13:00', e: '14:15', loc: 'Eng Center 306' },
+    { t: 'Calculus II',          c: 'class', d: [2, 4],    s: '14:00', e: '15:15', loc: 'Math 201' },
+    { t: 'CS Discussion',        c: 'class', d: [5],       s: '11:00', e: '12:00', loc: 'Eng Center 120' },
+    { t: 'Chem Lab',             c: 'class', d: [3],       s: '15:00', e: '17:50', loc: 'Science Lab B' },
+    { t: 'Prof. office hours',   c: 'class', d: [5],       s: '15:30', e: '16:30', loc: 'Math 412' },
+    // Clubs
+    { t: 'Entrepreneurship Club', c: 'club', d: [2], s: '18:00', e: '19:30', loc: 'Innovation Hub' },
+    { t: 'Robotics Club',         c: 'club', d: [4], s: '19:00', e: '20:30', loc: 'Makerspace' },
+    { t: 'Debate Society',        c: 'club', d: [1], s: '17:30', e: '18:30', loc: 'Student Union 2F' },
+    { t: 'Photography Club walk', c: 'club', d: [0], s: '10:00', e: '11:30', loc: 'Campus gate' },
+    // Meetups & social
+    { t: 'Study group – Calc',    c: 'meet', d: [3], s: '19:00', e: '21:00', loc: 'Library 3F' },
+    { t: 'Coffee w/ mentor',      c: 'meet', d: [5], s: '15:00', e: '16:00', loc: 'Brew Café' },
+    { t: 'Dinner with friends',   c: 'meet', d: [6], s: '18:30', e: '20:30', loc: 'Downtown' },
+    { t: 'Startup founders meetup', c: 'meet', d: [4], s: '16:30', e: '18:00', loc: 'Innovation Hub' },
+    { t: 'Lunch with roommate',   c: 'meet', d: [2], s: '12:00', e: '13:00', loc: 'Dining Hall' },
+    // Fitness
+    { t: 'Gym',                   c: 'fit', d: [1, 3, 5], s: '7:30', e: '8:30', loc: 'Rec Center' },
+    { t: 'Intramural soccer',     c: 'fit', d: [6], s: '10:00', e: '12:00', loc: 'North Field' },
+    // Work
+    { t: 'Library shift',         c: 'work', d: [0], s: '13:00', e: '17:00', loc: 'Main Library' },
+    { t: 'TA office hours',       c: 'work', d: [2], s: '16:00', e: '17:30', loc: 'Eng Center 220' },
+  ];
+
+  let nextId = 1;
+  const events = [];
+  SEED.forEach(ev => ev.d.forEach(day => events.push({
+    id: nextId++, title: ev.t, cat: ev.c, day, start: hm(ev.s), end: hm(ev.e), loc: ev.loc,
+  })));
+
+  const todos = [
+    { id: 't1', title: 'Register for class',        meta: 'Registration closes Friday', dur: 30 },
+    { id: 't2', title: 'Fill out wellbeing survey', meta: 'Student Health · ~15 min',   dur: 15 },
+    { id: 't3', title: 'Solve credit card issue',   meta: 'Call the bank',              dur: 45 },
+  ];
+
+  // ---------- Dates ----------
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const weekStart = new Date(today); weekStart.setDate(today.getDate() - today.getDay());
+  const dayDate = i => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d; };
+  const todayIdx = today.getDay();
+
+  const fmt = min => {
+    const h = Math.floor(min / 60), m = min % 60;
+    const ap = h >= 12 && h < 24 ? 'PM' : 'AM';
+    const h12 = ((h + 11) % 12) + 1;
+    return m ? `${h12}:${String(m).padStart(2, '0')} ${ap}` : `${h12} ${ap}`;
+  };
+  const fmtDur = m => m < 60 ? `${m} min` : (m % 60 ? `${(m / 60).toFixed(1).replace('.0', '')} hr` : `${m / 60} hr`);
+  const dayLabel = i => dayDate(i).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+
+  // ---------- Elements ----------
+  const $ = id => document.getElementById(id);
+  const grid = $('grid'), calScroll = $('calScroll'), todoList = $('todoList');
+  const cols = [], previews = [];
+
+  // ---------- Build calendar skeleton ----------
+  function buildCalendar() {
+    const first = dayDate(0), last = dayDate(6);
+    const mo = d => d.toLocaleDateString(undefined, { month: 'long' });
+    $('range').textContent = first.getMonth() === last.getMonth()
+      ? `${mo(first)} ${first.getFullYear()}`
+      : `${first.toLocaleDateString(undefined, { month: 'short' })} – ${last.toLocaleDateString(undefined, { month: 'short' })} ${last.getFullYear()}`;
+
+    const corner = document.createElement('div');
+    corner.className = 'corner';
+    corner.style.gridArea = '1 / 1';
+    const off = -today.getTimezoneOffset() / 60;
+    corner.textContent = 'GMT' + (off >= 0 ? '+' : '') + off;
+    grid.appendChild(corner);
+
+    for (let i = 0; i < 7; i++) {
+      const h = document.createElement('div');
+      h.className = 'dayhead' + (i === todayIdx ? ' today' : '');
+      h.style.gridArea = `1 / ${i + 2}`;
+      h.innerHTML = `<div class="dow">${dayDate(i).toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()}</div><div class="num">${dayDate(i).getDate()}</div>`;
+      grid.appendChild(h);
+    }
+
+    const height = (END_H - START_H) * HOUR_PX;
+    const times = document.createElement('div');
+    times.className = 'times';
+    times.style.gridArea = '2 / 1';
+    times.style.height = height + 'px';
+    for (let h = START_H + 1; h < END_H; h++) {
+      const s = document.createElement('span');
+      s.style.top = (h - START_H) * HOUR_PX + 'px';
+      s.textContent = fmt(h * 60);
+      times.appendChild(s);
+    }
+    grid.appendChild(times);
+
+    for (let i = 0; i < 7; i++) {
+      const col = document.createElement('div');
+      col.className = 'daycol' + (i === todayIdx ? ' today' : '');
+      col.style.height = height + 'px';
+      col.dataset.day = i;
+      col.style.gridArea = `2 / ${i + 2}`;
+      const p = document.createElement('div');
+      p.className = 'preview';
+      col.appendChild(p);
+      grid.appendChild(col);
+      cols.push(col); previews.push(p);
+    }
+    updateNowLine();
+    setInterval(updateNowLine, 60000);
+  }
+
+  function updateNowLine() {
+    document.querySelectorAll('.now-line').forEach(n => n.remove());
+    const now = new Date();
+    const min = now.getHours() * 60 + now.getMinutes();
+    if (min < START_H * 60 || min > END_H * 60) return;
+    const line = document.createElement('div');
+    line.className = 'now-line';
+    line.style.top = (min - START_H * 60) / 60 * HOUR_PX + 'px';
+    cols[todayIdx].appendChild(line);
+  }
+
+  // ---------- Render events (with overlap layout) ----------
+  function renderDay(day, highlightId) {
+    const col = cols[day];
+    col.querySelectorAll('.event').forEach(e => e.remove());
+    const list = events.filter(e => e.day === day).sort((a, b) => a.start - b.start || b.end - a.end);
+
+    // Group into clusters of transitively-overlapping events, then assign columns.
+    let cluster = [], clusterEnd = -1;
+    const flush = () => {
+      const lanes = [];
+      cluster.forEach(ev => {
+        let lane = lanes.findIndex(end => end <= ev.start);
+        if (lane === -1) { lane = lanes.length; lanes.push(ev.end); } else lanes[lane] = ev.end;
+        ev._lane = lane;
+      });
+      cluster.forEach(ev => { ev._lanes = lanes.length; });
+      cluster = [];
+    };
+    list.forEach(ev => {
+      if (cluster.length && ev.start >= clusterEnd) flush();
+      cluster.push(ev);
+      clusterEnd = Math.max(clusterEnd, ev.end);
+    });
+    if (cluster.length) flush();
+
+    list.forEach(ev => {
+      const el = document.createElement('div');
+      el.className = `event c-${ev.cat} ${ev.cat}` + (ev.id === highlightId ? ' new' : '');
+      const top = (ev.start - START_H * 60) / 60 * HOUR_PX;
+      const h = Math.max((ev.end - ev.start) / 60 * HOUR_PX - 2, 16);
+      const w = (100 - 4) / ev._lanes;
+      el.style.top = top + 'px';
+      el.style.height = h + 'px';
+      el.style.left = `calc(${ev._lane * w}% + 1px)`;
+      el.style.width = `calc(${w}% - 2px)`;
+      el.title = `${ev.title}\n${fmt(ev.start)} – ${fmt(ev.end)}${ev.loc ? '\n' + ev.loc : ''}`;
+      const short = ev.end - ev.start < 45;
+      if (short) {
+        el.classList.add('short');
+        el.innerHTML = `<span class="e-title"></span><span class="e-time">, ${fmt(ev.start)}</span>`;
+      } else {
+        el.innerHTML = `<div class="e-title"></div><div class="e-time">${fmt(ev.start)} – ${fmt(ev.end)}</div>` +
+          (ev.loc && h > 50 ? `<div class="e-loc"></div>` : '');
+        if (ev.loc && h > 50) el.querySelector('.e-loc').textContent = ev.loc;
+      }
+      el.querySelector('.e-title').textContent = ev.title;
+      if (ev.taskId) {
+        const x = document.createElement('button');
+        x.className = 'unschedule';
+        x.type = 'button';
+        x.textContent = '×';
+        x.title = 'Move back to to-do';
+        x.addEventListener('click', () => unschedule(ev));
+        el.appendChild(x);
+      }
+      col.appendChild(el);
+    });
+  }
+  const renderAll = () => { for (let d = 0; d < 7; d++) renderDay(d); };
+
+  // ---------- Legend ----------
+  function buildLegend() {
+    const ul = $('legend');
+    Object.entries(CATS).forEach(([k, label]) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="swatch c-${k}"></span><span>${label}</span>`;
+      ul.appendChild(li);
+    });
+  }
+
+  // ---------- To-do list ----------
+  function makeTaskEl(task) {
+    const li = document.createElement('li');
+    li.className = 'task';
+    li.dataset.id = task.id;
+    li.innerHTML = `<span class="check"></span><div><div class="title"></div><div class="meta"></div></div><span class="bar"></span>`;
+    li.querySelector('.title').textContent = task.title;
+    li.querySelector('.meta').textContent = task.meta;
+    attachPickup(li, task);
+    return li;
+  }
+  function renderTodos() {
+    todoList.innerHTML = '';
+    todos.forEach(t => todoList.appendChild(makeTaskEl(t)));
+    updateEmpty();
+  }
+  function updateEmpty() {
+    const visible = [...todoList.children].some(li => !li.classList.contains('picked'));
+    $('todoEmpty').hidden = visible;
+  }
+
+  // ---------- Pickup + drag ----------
+  let hold = null;   // pending long-press
+  let drag = null;   // active drag
+  let pending = null; // waiting on modal
+
+  function attachPickup(li, task) {
+    li.addEventListener('contextmenu', e => e.preventDefault());
+
+    li.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (hold || drag || pending) return;
+      e.preventDefault();
+      try { li.setPointerCapture(e.pointerId); } catch (_) {}
+      li.classList.add('holding');
+      hold = {
+        li, task, x: e.clientX, y: e.clientY, lastX: e.clientX, lastY: e.clientY,
+        timer: setTimeout(() => pickUp(), HOLD_MS),
+      };
+    });
+
+    li.addEventListener('pointermove', e => {
+      if (hold && hold.li === li) {
+        hold.lastX = e.clientX; hold.lastY = e.clientY;
+        if (Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 10) cancelHold();
+      } else if (drag && drag.li === li) {
+        drag.x = e.clientX; drag.y = e.clientY;
+        updateDrag();
+      }
+    });
+
+    const end = e => {
+      if (hold && hold.li === li) cancelHold();
+      else if (drag && drag.li === li) drop(e.type === 'pointercancel');
+    };
+    li.addEventListener('pointerup', end);
+    li.addEventListener('pointercancel', end);
+  }
+
+  function cancelHold() {
+    clearTimeout(hold.timer);
+    hold.li.classList.remove('holding');
+    hold = null;
+  }
+
+  function pickUp() {
+    const { li, task, lastX, lastY } = hold;
+    hold = null;
+    li.classList.remove('holding');
+    li.classList.add('picked');     // task temporarily leaves the to-do list
+    updateEmpty();
+    document.body.classList.add('dragging');
+
+    const box = document.createElement('div');
+    box.className = 'drag-box';
+    box.innerHTML = `<div class="t"></div><div class="when">Drag onto the calendar</div>`;
+    box.querySelector('.t').textContent = task.title;
+    const colW = cols[0].getBoundingClientRect().width;
+    box.style.width = Math.max(130, Math.min(200, colW - 6)) + 'px';
+    document.body.appendChild(box);
+
+    drag = { li, task, box, x: lastX, y: lastY, offX: 18, offY: 14, target: null, raf: 0 };
+    updateDrag();
+    drag.raf = requestAnimationFrame(autoScroll);
+  }
+
+  function hitTest(x, y) {
+    const sr = calScroll.getBoundingClientRect();
+    if (y < sr.top || y > sr.bottom || x < sr.left || x > sr.right) return null;
+    for (let i = 0; i < 7; i++) {
+      const r = cols[i].getBoundingClientRect();
+      if (x >= r.left && x < r.right) {
+        const topY = y - drag.offY;
+        let min = START_H * 60 + (topY - r.top) / HOUR_PX * 60;
+        min = Math.round(min / SNAP) * SNAP;
+        min = Math.max(START_H * 60, Math.min(END_H * 60 - SNAP, min));
+        return { day: i, start: min };
+      }
+    }
+    return null;
+  }
+
+  function showPreview(target, dur) {
+    previews.forEach((p, i) => {
+      cols[i].classList.toggle('drop-over', !!target && target.day === i);
+      if (!target || target.day !== i) { p.style.display = 'none'; return; }
+      const end = Math.min(target.start + dur, END_H * 60);
+      p.style.display = 'block';
+      p.style.top = (target.start - START_H * 60) / 60 * HOUR_PX + 'px';
+      p.style.height = Math.max((end - target.start) / 60 * HOUR_PX - 2, 16) + 'px';
+      p.textContent = `${fmt(target.start)} – ${fmt(end)}`;
+    });
+  }
+
+  function updateDrag() {
+    const { box, x, y, offX, offY } = drag;
+    box.style.transform = `translate(${x - offX}px, ${y - offY}px)`;
+    drag.target = hitTest(x, y);
+    showPreview(drag.target, 60);
+    box.querySelector('.when').textContent = drag.target
+      ? `${dayDate(drag.target.day).toLocaleDateString(undefined, { weekday: 'short' })} · ${fmt(drag.target.start)}`
+      : 'Drag onto the calendar';
+  }
+
+  // Scroll the calendar when dragging near its top/bottom edge.
+  function autoScroll() {
+    if (!drag) return;
+    const sr = calScroll.getBoundingClientRect();
+    const edge = 48;
+    let dy = 0;
+    if (drag.x > sr.left && drag.x < sr.right) {
+      if (drag.y < sr.top + edge + 60 && drag.y > sr.top) dy = -Math.ceil((sr.top + edge + 60 - drag.y) / 8);
+      else if (drag.y > sr.bottom - edge && drag.y < sr.bottom + 20) dy = Math.ceil((drag.y - (sr.bottom - edge)) / 8);
+    }
+    if (dy) { calScroll.scrollTop += dy; updateDrag(); }
+    drag.raf = requestAnimationFrame(autoScroll);
+  }
+
+  function drop(cancelled) {
+    const { li, task, box, target, raf } = drag;
+    cancelAnimationFrame(raf);
+    box.remove();
+    drag = null;
+    document.body.classList.remove('dragging');
+    if (cancelled || !target) {
+      showPreview(null);
+      restoreTask(li);
+      return;
+    }
+    openModal(li, task, target);
+  }
+
+  function restoreTask(li) {
+    li.classList.remove('picked');
+    li.classList.add('restored');
+    setTimeout(() => li.classList.remove('restored'), 400);
+    updateEmpty();
+  }
+
+  // ---------- Modal ----------
+  const DURS = [15, 30, 45, 60, 90, 120, 180];
+  const modal = $('modal');
+
+  function selectedDur() {
+    const c = modal.querySelector('input[name="dur"]:checked');
+    return c ? Number(c.value) : 60;
+  }
+  function refreshEnds() {
+    const { target } = pending;
+    const dur = selectedDur();
+    const end = Math.min(target.start + dur, END_H * 60);
+    $('mEnds').textContent = `${fmt(target.start)} – ${fmt(end)}` + (end < target.start + dur ? ' (trimmed to end of day)' : '');
+    showPreview(target, dur);
+  }
+
+  function openModal(li, task, target) {
+    pending = { li, task, target };
+    $('mTitle').textContent = task.title;
+    $('mWhen').textContent = `${dayLabel(target.day)} · starts ${fmt(target.start)}`;
+    const chips = $('mChips');
+    chips.innerHTML = '';
+    DURS.forEach(d => {
+      const id = 'dur' + d;
+      const input = document.createElement('input');
+      input.type = 'radio'; input.name = 'dur'; input.id = id; input.value = d;
+      if (d === task.dur) input.checked = true;
+      input.addEventListener('change', refreshEnds);
+      const label = document.createElement('label');
+      label.htmlFor = id; label.textContent = fmtDur(d);
+      chips.append(input, label);
+    });
+    modal.hidden = false;
+    refreshEnds();
+    $('mOk').focus();
+  }
+
+  function closeModal(ok) {
+    if (!pending) return;
+    const { li, task, target } = pending;
+    const dur = selectedDur();
+    pending = null;
+    modal.hidden = true;
+    showPreview(null);
+    if (ok) {
+      const ev = {
+        id: nextId++, title: task.title, cat: 'todo', day: target.day,
+        start: target.start, end: Math.min(target.start + dur, END_H * 60), taskId: task.id,
+      };
+      events.push(ev);
+      li.remove();                       // task now lives on the calendar
+      renderDay(target.day, ev.id);
+      updateEmpty();
+    } else {
+      restoreTask(li);                   // put it back in the to-do list
+    }
+  }
+
+  $('mOk').addEventListener('click', () => closeModal(true));
+  $('mCancel').addEventListener('click', () => closeModal(false));
+  document.addEventListener('keydown', e => {
+    if (!pending) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeModal(false); }
+    if (e.key === 'Enter' && document.activeElement !== $('mCancel')) { e.preventDefault(); closeModal(true); }
+  });
+
+  // Move a scheduled to-do back into the list.
+  function unschedule(ev) {
+    const idx = events.indexOf(ev);
+    if (idx >= 0) events.splice(idx, 1);
+    renderDay(ev.day);
+    const task = todos.find(t => t.id === ev.taskId);
+    const li = makeTaskEl(task);
+    // keep original order
+    const order = todos.map(t => t.id);
+    const after = [...todoList.children].find(c => order.indexOf(c.dataset.id) > order.indexOf(task.id));
+    todoList.insertBefore(li, after || null);
+    li.classList.add('restored');
+    updateEmpty();
+  }
+
+  // ---------- Init ----------
+  buildCalendar();
+  buildLegend();
+  renderAll();
+  renderTodos();
+
+  const scrollToMorning = () => { calScroll.scrollTop = (8 - START_H) * HOUR_PX - 12; };
+  scrollToMorning();
+  $('todayBtn').addEventListener('click', () => {
+    const now = new Date();
+    const min = Math.max(START_H * 60, now.getHours() * 60 + now.getMinutes() - 90);
+    calScroll.scrollTo({ top: (min - START_H * 60) / 60 * HOUR_PX, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>
